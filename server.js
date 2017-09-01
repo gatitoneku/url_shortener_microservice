@@ -8,6 +8,9 @@
 var fs = require('fs');
 var express = require('express');
 var app = express();
+require('dotenv').config();
+var MongoClient = require('mongodb').MongoClient;
+const dburl = "mongodb://localhost:27017/urlShortenerMEAN"
 
 if (!process.env.DISABLE_XORIGIN) {
   app.use(function(req, res, next) {
@@ -38,6 +41,23 @@ app.route('/')
 		  res.sendFile(process.cwd() + '/views/index.html');
     })
 
+var linkId = 62255;
+
+app.route('/new/:link')
+    .get(function(req, res){
+    res.sendFile(process.cwd() + '/views/index.html');
+    console.log(req.params.link);
+    MongoClient.connect(dburl, function(err, db) {
+    if (err) throw err;
+    var coll = db.collection('links');
+    var doc = {origURL:req.params.link, shortURL:linkId }
+    coll.insert(doc, function(err, data){
+    })
+    db.close();
+    })
+    linkId++;
+})
+
 // Respond not found to all the wrong routes
 app.use(function(req, res, next){
   res.status(404);
@@ -55,5 +75,7 @@ app.use(function(err, req, res, next) {
 
 app.listen(process.env.PORT, function () {
   console.log('Node.js listening ...');
+  console.log(process.env.PORT);
+  
 });
 
