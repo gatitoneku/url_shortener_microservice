@@ -9,17 +9,8 @@ var fs = require('fs');
 var express = require('express');
 var app = express();
 require('dotenv').config();
-var randomGenerator = require('./randomGenerator');
-
-//Mongoose stuff
-var mongoose = require('mongoose');
-mongoose.connect(process.env.DBURL, {useMongoClient: true});
-var Schema = mongoose.Schema;
-var linkSchema = new Schema({
-    origURL: String,
-    shortURL: String  
-});
-var Link = mongoose.model('Link', linkSchema);
+var MongoClient = require('mongodb').MongoClient;
+const dburl = "mongodb://gatitoneku:1234@ds119044.mlab.com:19044/urlshortenermean"
 
 if (!process.env.DISABLE_XORIGIN) {
   app.use(function(req, res, next) {
@@ -50,43 +41,50 @@ app.route('/')
 		  res.sendFile(process.cwd() + '/views/index.html');
     })
 
-function generateAndCheckDupes(){
-    var linkId = randomGenerator.randomString();
-    
-    Link.find({shortURL: linkId}, function(err, link){
-        if (err) throw err;
-        if(Object.keys(link).length!==0){
-            generateAndCheckDupes()}
-    });
-    return linkId;
-}
+var linkId = 62582;
 
-//New short link generation
 app.route('/new/:link')
     .get(function(req, res){
     console.log(req.params.link);
-    var linkId = generateAndCheckDupes();
     
-    var doc = {origURL:req.params.link, 
-               shortURL:linkId }
-    var newlink = new Link(doc);
-    newlink.save(function(err, link){
+    MongoClient.connect(dburl, function(err, db) {
+    if (err) throw err;
+    var coll = db.collection('links');
+    var doc = {origURL:req.params.link, shortURL:linkId }
+    coll.insert(doc, function(err, data){
         if (err) throw err;
-        console.log(link);
-        res.end("Your shortened link is http://sun-jury.glitch.me/"+link.shortURL);
-    });
+        console.log();
+        res.send("Your shortened link is http://sun-jury.glitch.me/"+data.ops[0].shortURL);
+    })
+   
+    db.close();
+    })
+    linkId++;
 })
 
-//Redirection
 app.route('/:shorturl')
     .get(function(req, res){
      var resultArray = [];
-     Link.findOne({shortURL: req.params.shorturl}, function(err, link){
-         if (err) throw err;
-         console.log(link);
-     }).then(function(link){
-         res.redirect("http://"+link.origURL);
-     });
+     MongoClient.connect(dburl, function(err, db){
+            if (err) throw err;
+            var coll = db.collection('links');
+            var cursor = coll.find({
+                shortURL: parseInt(req.params.shorturl)
+            });
+            //console.log(cursor);
+            cursor.forEach(function(doc, err){
+             if (err) throw err;
+             resultArray.push(doc);
+         }, function(){
+             db.close();
+             if(resultArray[0]!=null){
+             console.log(resultArray[0].origURL);
+             res.redirect("http://"+resultArray[0].origURL);}
+             else{
+             res.redirect('..')
+             }
+        })
+      })     
     }) 
 
 
