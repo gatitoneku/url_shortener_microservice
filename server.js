@@ -62,12 +62,12 @@ function generateAndCheckDupes(){
 }
 
 //New short link generation
-app.route('/new/:link')
+app.route('/new/')
     .get(function(req, res){
-    console.log(req.params.link);
+    console.log(req.query['url']);
     var linkId = generateAndCheckDupes();
     
-    var doc = {origURL:req.params.link, 
+    var doc = {origURL:decodeURIComponent(req.query['url']), 
                shortURL:linkId }
     var newlink = new Link(doc);
     newlink.save(function(err, link){
@@ -80,12 +80,21 @@ app.route('/new/:link')
 //Redirection
 app.route('/:shorturl')
     .get(function(req, res){
+     var expression = /(:\/\/)/g;
+     var regex = new RegExp(expression);
      var resultArray = [];
      Link.findOne({shortURL: req.params.shorturl}, function(err, link){
          if (err) throw err;
          console.log(link);
      }).then(function(link){
-         res.redirect("http://"+link.origURL);
+         //if doesn't have http, append it
+         if(link.origURL.match(regex)) {
+            res.redirect(link.origURL);
+         }
+         else{
+            res.redirect('http://'+link.origURL);
+         }
+         ;
      });
     }) 
 
